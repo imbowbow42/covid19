@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" type="image/png" href="/vietnam.svg"/>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <!-- jQuery library -->
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <!-- Popper JS -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.16.0/umd/popper.min.js"></script>
+    <!-- Latest compiled JavaScript -->
+   
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
+    <link rel="stylesheet" href="app.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <title>Thông tin | Covid-19</title>
+</head>
+
+<body>
+    <div class="hero">
+
+    </div>
+    <div class="home">
+        <h1 class="color-inverted">Thông tin<br>COVID-19</h1>
+        <div class="container">
+            <div id="loaded">
+                <p class="last-updated color-inverted text-center"><span id="last-updated">Last update: 6/24/2021,
+                        11:40:26 PM</span>
+                    <a href="./"> <span id="refresh-icon" class="text-center"><svg class="bi bi-arrow-clockwise"
+                                width="25" height="25" viewBox="0 0 20 20" fill="currentColor"
+                                xmlns="http://www.w3.org/2000/svg">
+                                <path fill-rule="evenodd"
+                                    d="M10 4.5a5.5 5.5 0 105.5 5.5.5.5 0 011 0 6.5 6.5 0 11-3.25-5.63l-.5.865A5.472 5.472 0 0010 4.5z"
+                                    clip-rule="evenodd"></path>
+                                <path fill-rule="evenodd"
+                                    d="M10.646 1.646a.5.5 0 01.708 0l2.5 2.5a.5.5 0 010 .708l-2.5 2.5a.5.5 0 01-.708-.708L12.793 4.5l-2.147-2.146a.5.5 0 010-.708z"
+                                    clip-rule="evenodd"></path>
+                            </svg></span></a>
+                </p>
+            </div>
+        </div>
+
+        <div class="top container">
+            <h2>Thế giới</h2>
+            <div class="row dashboard world">
+                <div class="col-4 col-sm-4 col-md-3 text-center">
+                    <p class="confirmed number counter">0</p>
+                    <p class="confirmed diff">(+0)</p>
+                    <p>Số ca nhiễm</p>
+                </div>
+                <div class="col-4 col-sm-4 col-md-2 text-center">
+                    <p class="death red number counter">0</p>
+                    <p class="death diff">(+0)</p>
+                    <p>Tử vong</p>
+                </div>
+                <div class="col-4 col-sm-4 col-md-2 text-center">
+                    <p class="released number counter">0</p>
+                    <p class="released diff">(+38,710)</p>
+                    <p>Đã chữa khỏi</p>
+                </div>
+                <div class="col-6 col-sm-6 col-md-3 text-center">
+                    <p class="fatality number">0</p>
+                    <p>Tỉ lệ không qua khỏi</p>
+                </div>
+                <div class="col-6 col-sm-6 col-md-2 text-center">
+                    <p class="country number counter">0</p>
+                    <p class="country diff">(-)</p>
+                    <p>Số quốc gia ảnh hưởng</p>
+                </div>
+            </div>
+            <h2>Việt Nam</h2>
+            <div class="row dashboard vn">
+                <div class="col-4 col-sm-4 col-md-3 text-center">
+                    <p class="confirmed number counter">0</p>
+                    <p>Số ca nhiễm</p>
+                </div>
+                <div class="col-4 col-sm-4 col-md-2 text-center">
+                    <p class="death red number counter">0</p>
+
+                    <p>Tử vong</p>
+                </div>
+                <div class="col-4 col-sm-4 col-md-2 text-center">
+                    <p class="released number counter">0</p>
+
+                    <p>Đã chữa khỏi</p>
+                </div>
+                <div class="col-6 col-sm-6 col-md-3 text-center">
+                    <p class="fatality number counter">0</p>
+                    <p>Đang điều trị</p>
+                </div>
+
+                <div class="col-6 col-sm-6 col-md-2 text-center">
+                    <p class="provinces number counter">0</p>
+                    <p class="provinces diff">(-)</p>
+
+                    <p>Số tỉnh bị ảnh hưởng</p>
+                </div>
+            </div>
+
+            <p class="legend terms text-center" data-toggle="modal" data-target="#exampleModalCenter"><svg
+                    class="bi bi-info" width="1em" height="1em" viewBox="0 0 20 20" fill="currentColor"
+                    xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" d="M10 17a7 7 0 100-14 7 7 0 000 14zm8-7a8 8 0 11-16 0 8 8 0 0116 0z"
+                        clip-rule="evenodd"></path>
+                    <path
+                        d="M10.93 8.588l-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533l1.002-4.705z">
+                    </path>
+                    <circle cx="10" cy="6.5" r="1"></circle>
+                </svg> <span>Terms</span></p>
+            <p class="text-center dashboard-info">* Dữ liệu dựa trên Bộ Y Tế và các trang chia sẻ api cung cấp</p>
+        </div>
+    </div>
+
+
+    <div class="container my-5">
+        <div class="">
+
+            <ul class="nav nav-tabs justify-content-center" id="tabs">
+                <li class="nav-item">
+                    <a class="nav-link tab-item active" data-toggle="tab" href="#world-container">🌏 Thế giới</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link tab-item" data-toggle="tab" href="#vn-container"><img width="20px" height="20px" src="./vietnam.svg" alt="">  Việt Nam</a>
+                </li>
+                
+            </ul>
+        </div>
+        <!-- Keep map above fold -->
+        <div class="tab-content">
+            <div id="world-container" class="tab-pane active">
+                <div id="map-world"></div>
+                <div class="table-responsive-sm my-5">
+                    <table class="table table-striped" id="table-world">
+                        <thead class="bg-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th scope="col">Quốc gia</th>
+                                <th scope="col">Số ca nhiễm</th>
+                                <th scope="col">Tử vong</th>
+                                <th scope="col">Đã chữa khỏi</th>
+
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">1</th>
+                                <td>USA</td>
+                                <td>34,490,134 <br> <span class="text-danger diff">(+7,423)</span></td>
+                                <td>619,343 <br> <span class="text-danger diff">(+3,423)</span></td>
+                                <td>28,912,906 <br> <span class="text-success diff">(+8,423)</span></td>
+                            </tr>
+
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="5"><button onclick="showMoreCountries()"
+                                        class="btn btn-info text-center">Xem thêm (70/222)</button></td>
+                            </tr>
+
+                        </tfoot>
+                    </table>
+
+                </div>
+
+            </div>
+
+            <div id="vn-container" class="tab-pane my-5">
+                <div class="d-flex justify-content-md-between justify-content-center flex-column flex-md-row">
+                    <div id="map-vn" class="mx-auto mb-5"></div>
+                    <table id="table-vn" class="m-auto table table-striped d-block text-center">
+                        <thead class="bg-light">
+                            <tr>
+                                <th scope="col">#</th>
+                                <th>Tỉnh/Thành Phố</th>
+                                <th>Số ca nhiễm</th>
+                                <th>Số ca khỏi</th>
+                                <th>Số ca tử vong</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                        </tbody>
+
+                    </table>
+                </div>
+            </div>
+
+        </div>
+    </div>
+    <div class="container chart-section">
+        <h2 class="text-center pb-3">BIỂU ĐỒ THẾ GIỚI 🌏</h2>
+        <div class="golbal-trend card mb-5">
+            <canvas id="global-trend">
+
+            </canvas>
+        </div>
+        <div class="golbal-trend card mb-5">
+            <canvas id="countries-trend">
+
+            </canvas>
+        </div>
+        <h2 class="text-center pb-3">VIỆT NAM <img width="32px" height="32px" src="./vietnam.svg" alt=""></h2>
+        <div class="vietnam-trend card my-5">
+            <canvas id="vietnam-chart">
+
+            </canvas>
+        </div>
+    </div>
+
+
+    <!-- Site footer -->
+    <footer class="site-footer">
+        <div class="container">
+
+              <div class="m-auto text-center">
+                <p class="copyright-text">Powered by 
+                <a href="https://www.facebook.com/phamgbao42/">phamgb42</a>.
+                </p>
+                
+              </div>
+    
+              <div class="my-3 text-center">
+                <a class="facebook my-2" href="https://www.facebook.com/phamgbao42/"><i class="fa fa-facebook"></i></a>
+                
+              </div>
+           
+          </div>
+    </footer>
+    <script src="./script/main.js"></script>
+    <script src="./script/mapdataworld.js"></script>
+    <script src="./script/mapdatavn.js"></script>
+    <script src="./script/countrymap.js"></script>
+    <script src="./script/worldmap.js"></script>
+
+
+
+</body>
+
+</html>

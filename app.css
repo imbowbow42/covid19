@@ -1,0 +1,349 @@
+* {
+    box-sizing: border-box;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+    font-size: 16px;
+}
+
+@media (max-width: 480px) {
+    html[lang="en"] .home .google-visualization-table-th, html[lang="fr"] .home .google-visualization-table-th {
+        font-size: 12px
+    }
+    html[lang="en"] .home .google-visualization-table-td, html[lang="fr"] .home .google-visualization-table-td {
+        font-size: 13px
+    }
+}
+/*DASHBOARD*/
+.home h1 {
+    padding-top: 64px;
+    margin-bottom: 28px;
+    font-size: 1.9rem
+}
+
+.home #scroll-top a {
+    color: #343a40
+}
+
+.home .color-inverted {
+    color: white
+}
+
+.home .color-inverted a {
+    color: white;
+    text-decoration: underline
+}
+
+.home h1, .home h2, .home h3, .home h4, .home h5 {
+    text-align: center
+}
+
+.home .red.number {
+    color: red
+}
+
+.home .green.number {
+    color: green
+}
+
+.home .table .number {
+    text-align: right
+}
+
+@media (min-width: 1200px) {
+    .home .container {
+        max-width: 960px
+    }
+}
+
+.home .top {
+    background-color: white;
+    border-radius: 10px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border: 1px solid #dee2e6
+}
+
+.home .top h2 {
+    padding-top: 10px;
+    padding-bottom: 10px;
+    font-size: 23px
+}
+
+.home .top .dashboard p {
+    font-size: 15px
+}
+
+.home .top .dashboard p.number {
+    font-size: 22px;
+    font-weight: 500
+}
+
+@media (max-width: 375px) {
+    .home .top .dashboard p.number {
+        font-size: 19px
+    }
+}
+
+.home .top .dashboard .diff {
+    position: absolute;
+    top: 24px;
+    left: 50%;
+    margin-left: -50%;
+    width: 100%;
+    color: red
+}
+
+.home .top .dashboard .diff.minus {
+    color: blue
+}
+
+.home .top .dashboard .negative.diff, .home .top .dashboard .released.diff {
+    color: green
+}
+
+.home .top .dashboard .diff.green {
+    color: green
+}
+
+.home .top .dashboard.domestic {
+    margin-bottom: 10px
+}
+
+.home .top .dashboard-info {
+    color: #3e3e3e;
+    font-size: 13px;
+    margin-bottom: 0
+}
+
+.home .top .legend {
+    margin-bottom: 0;
+    margin-right: 5px;
+    color: #aaa;
+    font-size: 1.0rem;
+    cursor: pointer
+}
+
+.home .top .legend svg {
+    vertical-align: text-top;
+    font-size: 19px
+}
+
+@media (max-width: 480px) {
+    .home .top {
+        border-radius: 0;
+        margin-bottom: 0
+    }
+}
+
+.home .legend.terms {
+    color: #3e3e3e;
+    cursor: pointer
+}
+
+.home .table-legend {
+    color: #aaa;
+    font-size: 0.8rem
+}
+
+.home .table-legend a {
+    color: #aaa
+}
+
+.home .slide-top {
+    padding: 20px 0 32px;
+    text-align: center;
+    border-bottom: 1px solid #dee2e6
+}
+
+
+.hero {
+    position: absolute;
+    display: block;
+    background-color: #252525;
+    width: 100%;
+    height: 300px;
+    z-index: -99;
+    margin-top: -45px;
+}
+
+.top-container {
+    background-color: white;
+    border-radius: 10px;
+    margin-top: 0;
+    margin-bottom: 10px;
+    padding-top: 10px;
+    padding-bottom: 10px;
+    border: 1px solid #dee2e6;
+    max-width: 720px;
+    width: 100%;
+    padding-right: 15px;
+    padding-left: 15px;
+    margin-right: auto;
+    margin-left: auto;
+}
+/* TAB UI */
+.tabs {
+    display: flex;
+    position: relative;
+}
+
+.tab-item {
+    min-width: 80px;
+    padding: 16px 20px 11px 20px;
+    font-size: 20px;
+    text-align: center;
+    color: #c23564;
+    background-color: #fff;
+    border-top-left-radius: 5px;
+    border-top-right-radius: 5px;
+    border-bottom: 5px solid transparent;
+    opacity: 0.6;
+    cursor: pointer;
+    transition: all 0.5s ease;
+}
+
+.tab-icon {
+    font-size: 24px;
+    width: 32px;
+    position: relative;
+    top: 2px;
+}
+
+.tab-item:hover {
+    opacity: 1;
+    background-color: rgba(194, 53, 100, 0.05);
+    border-color: rgba(194, 53, 100, 0.1);
+}
+
+.tab-item.active {
+    opacity: 1;
+}
+
+
+/* TABLE */
+#table-vn {
+    height: 500px;
+    overflow-y: scroll;
+    width: auto;
+}
+#table-world{
+    max-width: 800px;
+    margin: auto;
+}
+
+.table-responsive {
+    margin: 50px auto;
+    max-width: 800px;
+}
+
+thead {
+    position: sticky;
+    top: 0;
+}
+
+.btn {
+    width: 100%;
+}
+
+
+/* FOOTER */
+
+.site-footer
+{
+  background-color:#26272b;
+  padding:45px 0 20px;
+  font-size:15px;
+  line-height:24px;
+  color:#737373;
+}
+.site-footer hr
+{
+  border-top-color:#bbb;
+  opacity:0.5
+}
+.site-footer hr.small
+{
+  margin:20px 0
+}
+.site-footer h6
+{
+  color:#fff;
+  font-size:16px;
+  text-transform:uppercase;
+  margin-top:5px;
+  letter-spacing:2px
+}
+.site-footer a
+{
+  color:#737373;
+}
+.site-footer a:hover
+{
+  color:#3366cc;
+  text-decoration:none;
+}
+
+.site-footer .social-icons
+{
+  text-align:right
+}
+.site-footer .social-icons a
+{
+  width:40px;
+  height:40px;
+  line-height:40px;
+  margin-left:6px;
+  margin-right:0;
+  border-radius:100%;
+  background-color:#33353d
+}
+.copyright-text
+{
+  margin:0
+}
+
+
+.social-icons a{
+  background-color:#eceeef;
+  color:#818a91;
+  font-size:20px;
+  display:inline-block;
+  line-height:44px;
+  width:44px;
+  height:44px;
+  text-align:center;
+  margin-right:8px;
+  border-radius:100%;
+  -webkit-transition:all .2s linear;
+  -o-transition:all .2s linear;
+  transition:all .2s linear
+}
+.social-icons a:active,.social-icons a:focus,.social-icons a:hover
+{
+  color:#fff;
+  background-color:#29aafe
+}
+.social-icons.size-sm a
+{
+  line-height:34px;
+  height:34px;
+  width:34px;
+  font-size:14px
+}
+.social-icons a.facebook:hover
+{
+  background-color:#3b5998
+}
+.social-icons a.twitter:hover
+{
+  background-color:#00aced
+}
+.social-icons a.linkedin:hover
+{
+  background-color:#007bb6
+}
+.social-icons a.dribbble:hover
+{
+  background-color:#ea4c89
+}
