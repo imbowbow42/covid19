@@ -1,9 +1,7 @@
 async function getDataVN() {
     const responseData = await fetch("https://api.apify.com/v2/key-value-stores/ZsOpZgeg7dFS1rgfM/records/LATEST");
-    const responseHcKey = await fetch("https://api.apify.com/v2/key-value-stores/p3nS2Q9TUn6kUOriJ/records/LATEST");
     const data = await responseData.json();
-    const hcKey = await responseHcKey.json();
-    return { data, hcKey };
+    return { data };
 }
 async function getDataWorld() {
     const responseData = await fetch("https://corona-virus-world-and-india-data.p.rapidapi.com/api", {
@@ -20,7 +18,7 @@ async function getDataWorld() {
 var listCountriesMapped = []
 async function main() {
     var { infected, treated, recovered, deceased, detail } = await (await getDataVN()).data;
-    renderDashboardVn(infected, deceased, recovered, treated,detail.length);
+    renderDashboardVn(infected, deceased, recovered, treated, detail.length);
     const { countries_stat, statistic_taken_at, world_total } = await (await getDataWorld());
     $('#last-updated')[0].textContent = "Last update: " + statistic_taken_at;
     const { total_cases, new_cases, total_recovered, total_deaths, new_deaths } = world_total;
@@ -32,15 +30,14 @@ async function main() {
         total_recovered,
         "2,17%"
     );
-    
+
     numCounter()
-        // TABLE
+    // TABLE
     listCountriesMapped = createWorlList(countries_stat)
-    const { key } = await (await getDataVN()).hcKey;
     createTableWorld(countries_stat) // Create table the gioi
-    createTable(detail, key); // Create table viet nam
-    
-        //CHART
+    createTable(detail); // Create table viet nam
+
+    //CHART
 
     var { cases, deaths, recovered } = await (await getDataForChart()).dataWorld;
     const { canhiem, catuvong, cakhoi } = await (await getDataForChart()).dataVN;
@@ -1764,43 +1761,40 @@ var state_specific_world = {
         url: "default"
     }
 }
-function createTable(detail, key) {
+function createTable(detail) {
     for (var i = 0; i < detail.length; i++) {
         var tr = document.createElement("tr");
 
-        var name = key.find(k => k["hec-key"] == detail[i]["hc-key"]);
-        if (name) {
-            var tdName = document.createElement("td");
-            tdName.textContent = exeString(name.name);
-
-            for (const property in state_specific) {
-                if (removeAccents(state_specific[property].name).toLowerCase() == removeAccents(exeString(name.name)).toLowerCase()) {
-                    state_specific[property].color = setColorMap(parseInt(detail[i].value), colors);
-                    state_specific[property].description = `
-                    <span>Số ca nhiễm: <badge>${detail[i].value}</badge></span><br>
-                    <span>Số ca khỏi: <badge>${detail[i].socakhoi}</badge></span><br>
-                    <span>Số ca tử vong: <badge>${detail[i].socatuvong}</badge></span>
+        var tdName = document.createElement("td");
+        tdName.textContent = exeString(detail[i].name);
+        for (const property in state_specific) {
+            if (removeAccents(state_specific[property].name).toLowerCase() == removeAccents(exeString(detail[i].name)).toLowerCase()) {
+                state_specific[property].color = setColorMap(parseInt(detail[i].cases), colors);
+                state_specific[property].description = `
+                    <span>Số ca nhiễm: <badge>${detail[i].cases}</badge></span><br>
+                    <span>Số ca khỏi: <badge>${detail[i].recovered}</badge></span><br>
+                    <span>Số ca tử vong: <badge>${detail[i].death}</badge></span>
                     `;
-                }
             }
-            var tdRank = document.createElement("td");
-            tdRank.textContent = i + 1;
-            var tdNhiem = document.createElement("td");
-            tdNhiem.textContent = detail[i].value;
-
-            var tdKhoi = document.createElement("td");
-            tdKhoi.textContent = detail[i].socakhoi;
-
-            var tdTuVong = document.createElement("td");
-            tdTuVong.textContent = detail[i].socatuvong;
-
-            tr.appendChild(tdRank);
-            tr.appendChild(tdName);
-            tr.appendChild(tdNhiem);
-            tr.appendChild(tdKhoi);
-            tr.appendChild(tdTuVong);
-            document.getElementById("table-vn").appendChild(tr)
         }
+        var tdRank = document.createElement("td");
+        tdRank.textContent = i + 1;
+        var tdNhiem = document.createElement("td");
+        tdNhiem.textContent = detail[i].cases;
+
+        var tdKhoi = document.createElement("td");
+        tdKhoi.textContent = detail[i].recovered;
+
+        var tdTuVong = document.createElement("td");
+        tdTuVong.textContent = detail[i].death;
+
+        tr.appendChild(tdRank);
+        tr.appendChild(tdName);
+        tr.appendChild(tdNhiem);
+        tr.appendChild(tdKhoi);
+        tr.appendChild(tdTuVong);
+        document.getElementById("table-vn").appendChild(tr)
+
     }
 }
 function createWorlList(data) {
@@ -2142,22 +2136,22 @@ function createChartCountries(dataforChart, title, idChart) {
     for (day in dataforChart[0]['timeline']['cases']) {
         labels.push(day);
         USA.push(dataforChart[0]['timeline']['cases'][day])
-        
+
     }
     for (day in dataforChart[1]['timeline']['cases']) {
-        
+
         India.push(dataforChart[1]['timeline']['cases'][day])
     }
     for (day in dataforChart[2]['timeline']['cases']) {
-        
+
         Brazil.push(dataforChart[2]['timeline']['cases'][day])
     }
     for (day in dataforChart[3]['timeline']['cases']) {
-        
+
         France.push(dataforChart[3]['timeline']['cases'][day])
     }
     for (day in dataforChart[4]['timeline']['cases']) {
-        
+
         Russia.push(dataforChart[4]['timeline']['cases'][day])
     }
     var data = {
