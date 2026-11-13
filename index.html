@@ -157,19 +157,19 @@
         <!-- Interactive Map & Tables Tabs -->
         <section class="mt-4">
             <div class="nav-tabs-wrapper">
-                <div class="nav-tabs-pill" id="tabs">
-                    <a class="tab-btn active" data-toggle="tab" href="#world-container">
+                <nav class="nav nav-tabs-pill" id="tabs" role="tablist">
+                    <a class="nav-link tab-btn active" data-toggle="tab" href="#world-container" role="tab" aria-controls="world-container" aria-selected="true">
                         <span>🌏</span> Thế giới
                     </a>
-                    <a class="tab-btn" data-toggle="tab" href="#vn-container">
+                    <a class="nav-link tab-btn" data-toggle="tab" href="#vn-container" role="tab" aria-controls="vn-container" aria-selected="false">
                         <img width="18" height="18" src="./vietnam.svg" alt=""> Việt Nam
                     </a>
-                </div>
+                </nav>
             </div>
 
             <div class="tab-content">
                 <!-- Tab: World -->
-                <div id="world-container" class="tab-pane active">
+                <div id="world-container" class="tab-pane fade show active" role="tabpanel" aria-labelledby="world-tab">
                     <div class="map-card">
                         <div id="map-world"></div>
                     </div>
@@ -209,7 +209,7 @@
                 </div>
 
                 <!-- Tab: Vietnam -->
-                <div id="vn-container" class="tab-pane fade">
+                <div id="vn-container" class="tab-pane fade" role="tabpanel" aria-labelledby="vn-tab">
                     <div class="map-card">
                         <div id="map-vn"></div>
                     </div>
