@@ -1,74 +1,217 @@
+/**
+ * COVID-19 Tracker - Main Application Logic
+ * Real-time data integration with disease.sh & Apify
+ * With Light/Dark Theme Switching (Default: Light/Bright Mode)
+ */
+
+// Global State
+let globalCountriesStat = [];
+let globalVnDetail = [];
+let currentWorldLimit = 50;
+let cachedChartData = null;
+const chartInstances = {};
+
+/**
+ * Theme Management
+ * Default: Bright / Light Mode
+ */
+function initTheme() {
+    const savedTheme = localStorage.getItem("covid19_theme") || "light";
+    setTheme(savedTheme, false);
+
+    const toggleBtn = document.getElementById("theme-toggle");
+    if (toggleBtn) {
+        toggleBtn.addEventListener("click", () => {
+            const current = document.documentElement.getAttribute("data-theme") || "light";
+            const target = current === "dark" ? "light" : "dark";
+            setTheme(target, true);
+        });
+    }
+}
+
+function setTheme(theme, updateCharts) {
+    document.documentElement.setAttribute("data-theme", theme);
+    try {
+        localStorage.setItem("covid19_theme", theme);
+    } catch (e) {}
+
+    const meta = document.querySelector('meta[name="color-scheme"]');
+    if (meta) meta.content = theme;
+
+    const toggleText = document.querySelector(".theme-toggle-text");
+    if (toggleText) {
+        toggleText.textContent = theme === "dark" ? "Chế độ sáng" : "Chế độ tối";
+    }
+
+    if (updateCharts && cachedChartData) {
+        renderAllCharts(cachedChartData);
+    }
+}
+
+function getChartThemeColors() {
+    const isDark = document.documentElement.getAttribute("data-theme") === "dark";
+    return {
+        gridColor: isDark ? 'rgba(255, 255, 255, 0.08)' : 'rgba(0, 0, 0, 0.06)',
+        tickColor: isDark ? '#94a3b8' : '#475569',
+        titleColor: isDark ? '#f8fafc' : '#0f172a'
+    };
+}
+
+/**
+ * Fetch Vietnam COVID-19 data
+ */
 async function getDataVN() {
-    const responseData = await fetch("https://api.apify.com/v2/key-value-stores/ZsOpZgeg7dFS1rgfM/records/LATEST");
-    const data = await responseData.json();
-    return { data };
-}
-async function getDataWorld() {
-    const responseData = await fetch("https://corona-virus-world-and-india-data.p.rapidapi.com/api", {
-        "method": "GET",
-        "headers": {
-            "x-rapidapi-key": "05768fef14mshcf7e044eabfc816p11a125jsn24fb663c88b7",
-            "x-rapidapi-host": "corona-virus-world-and-india-data.p.rapidapi.com"
+    try {
+        const responseData = await fetch("https://api.apify.com/v2/key-value-stores/ZsOpZgeg7dFS1rgfM/records/LATEST");
+        if (!responseData.ok) throw new Error("HTTP error " + responseData.status);
+        const data = await responseData.json();
+        return { data };
+    } catch (err) {
+        console.warn("Apify VN failed, attempting fallback:", err.message);
+        try {
+            const fallbackRes = await fetch("https://disease.sh/v3/covid-19/countries/vietnam");
+            const fb = await fallbackRes.json();
+            return {
+                data: {
+                    infected: fb.cases || 0,
+                    deceased: fb.deaths || 0,
+                    recovered: fb.recovered || 0,
+                    treated: fb.active || 0,
+                    detail: []
+                }
+            };
+        } catch (e2) {
+            console.error("All VN data sources failed:", e2);
+            return {
+                data: { infected: 0, deceased: 0, recovered: 0, treated: 0, detail: [] }
+            };
         }
-    })
-    const data = await responseData.json();
-
-    return data;
-}
-var listCountriesMapped = []
-async function main() {
-    var { infected, treated, recovered, deceased, detail } = await (await getDataVN()).data;
-    renderDashboardVn(infected, deceased, recovered, treated, detail.length);
-    const { countries_stat, statistic_taken_at, world_total } = await (await getDataWorld());
-    $('#last-updated')[0].textContent = "Last update: " + statistic_taken_at;
-    const { total_cases, new_cases, total_recovered, total_deaths, new_deaths } = world_total;
-    renderDashboardWorld(
-        total_cases,
-        new_cases,
-        total_deaths,
-        new_deaths,
-        total_recovered,
-        "2,17%"
-    );
-
-    numCounter()
-    // TABLE
-    listCountriesMapped = createWorlList(countries_stat)
-    createTableWorld(countries_stat) // Create table the gioi
-    createTable(detail); // Create table viet nam
-
-    //CHART
-
-    var { cases, deaths, recovered } = await (await getDataForChart()).dataWorld;
-    const { canhiem, catuvong, cakhoi } = await (await getDataForChart()).dataVN;
-    var countriesComparisonDataChart = await (await (await getDataForChart()).dataCountries)
-    createChartWorld([cases, deaths, recovered], 'BIỂU ĐỒ TÌNH HÌNH DỊCH BỆNH THẾ GIỚI TRONG 1 THÁNG', "global-trend")
-    createChart([canhiem, catuvong, cakhoi], 'BIỂU ĐỒ TÌNH HÌNH DỊCH BỆNH VIỆT NAM TRONG 10 NGÀY QUA', "vietnam-chart");
-    createChartCountries(countriesComparisonDataChart, "BIỂU ĐỒ SO SÁNH GIỮA CÁC NƯỚC", "countries-trend")
+    }
 }
 
+/**
+ * Fetch World COVID-19 data from disease.sh
+ */
+async function getDataWorld() {
+    try {
+        const [resAll, resCountries] = await Promise.all([
+            fetch("https://disease.sh/v3/covid-19/all"),
+            fetch("https://disease.sh/v3/covid-19/countries")
+        ]);
 
-function renderDashboardWorld(confirmed, new_cases, death, new_deaths, released, fatality) {
-    $(".confirmed.number")[0].dataset.target = removeComma(confirmed)
-    $(".confirmed.diff")[0].textContent = "(+" + new_cases + ")";
-    $(".death.number")[0].dataset.target = removeComma(death);
-    $(".death.diff")[0].textContent = "(+" + new_deaths + ")";
-    $(".released.number")[0].dataset.target = removeComma(released);
-    $(".fatality.number")[0].textContent = fatality;
-    $(".country.number")[0].dataset.target = '222';
+        if (!resAll.ok || !resCountries.ok) {
+            throw new Error("Failed to fetch world data from disease.sh");
+        }
 
+        const all = await resAll.json();
+        const countries = await resCountries.json();
+
+        // Sort countries descending by total confirmed cases
+        countries.sort((a, b) => b.cases - a.cases);
+
+        const statistic_taken_at = new Date(all.updated || Date.now()).toLocaleString('vi-VN');
+        const fatalityRate = all.cases > 0 ? ((all.deaths / all.cases) * 100).toFixed(2) + '%' : '0%';
+
+        const world_total = {
+            total_cases: all.cases || 0,
+            new_cases: all.todayCases || 0,
+            total_deaths: all.deaths || 0,
+            new_deaths: all.todayDeaths || 0,
+            total_recovered: all.recovered || 0,
+            new_recovered: all.todayRecovered || 0,
+            fatality: fatalityRate,
+            affected_countries: all.affectedCountries || countries.length
+        };
+
+        const countries_stat = countries.map(c => ({
+            country_name: c.country,
+            cases: (c.cases || 0).toLocaleString('vi-VN'),
+            new_cases: c.todayCases ? (c.todayCases).toLocaleString('vi-VN') : '0',
+            deaths: (c.deaths || 0).toLocaleString('vi-VN'),
+            new_deaths: c.todayDeaths ? (c.todayDeaths).toLocaleString('vi-VN') : '0',
+            total_recovered: (c.recovered || 0).toLocaleString('vi-VN'),
+            active: (c.active || 0).toLocaleString('vi-VN'),
+            iso2: c.countryInfo?.iso2 || '',
+            flag: c.countryInfo?.flag || '',
+            raw_cases: c.cases || 0,
+            raw_deaths: c.deaths || 0,
+            raw_recovered: c.recovered || 0
+        }));
+
+        return {
+            world_total,
+            countries_stat,
+            statistic_taken_at
+        };
+    } catch (err) {
+        console.error("getDataWorld failed:", err);
+        return {
+            world_total: {
+                total_cases: 0,
+                new_cases: 0,
+                total_deaths: 0,
+                new_deaths: 0,
+                total_recovered: 0,
+                fatality: "0%",
+                affected_countries: 0
+            },
+            countries_stat: [],
+            statistic_taken_at: new Date().toLocaleString('vi-VN')
+        };
+    }
 }
 
+/**
+ * Render World Dashboard Cards
+ */
+function renderDashboardWorld(confirmed, new_cases, death, new_deaths, released, fatality, affectedCountries) {
+    const elConfirmed = document.querySelector(".world .confirmed.number");
+    const elConfirmedDiff = document.querySelector(".world .confirmed.diff");
+    const elDeath = document.querySelector(".world .death.number");
+    const elDeathDiff = document.querySelector(".world .death.diff");
+    const elReleased = document.querySelector(".world .released.number");
+    const elFatality = document.querySelector(".world .fatality.number");
+    const elCountry = document.querySelector(".world .country.number");
+
+    if (elConfirmed) elConfirmed.dataset.target = confirmed;
+    if (elConfirmedDiff) {
+        elConfirmedDiff.textContent = new_cases && new_cases > 0 ? "(+" + numberWithCommas(new_cases) + ")" : "";
+        elConfirmedDiff.style.display = new_cases && new_cases > 0 ? "inline-block" : "none";
+    }
+
+    if (elDeath) elDeath.dataset.target = death;
+    if (elDeathDiff) {
+        elDeathDiff.textContent = new_deaths && new_deaths > 0 ? "(+" + numberWithCommas(new_deaths) + ")" : "";
+        elDeathDiff.style.display = new_deaths && new_deaths > 0 ? "inline-block" : "none";
+    }
+
+    if (elReleased) elReleased.dataset.target = released;
+    if (elFatality) elFatality.textContent = fatality;
+    if (elCountry) elCountry.dataset.target = affectedCountries || 231;
+}
+
+/**
+ * Render Vietnam Dashboard Cards
+ */
 function renderDashboardVn(confirmed, death, released, fatality, provinces) {
-    $(".confirmed.number")[1].dataset.target = confirmed
-    $(".death.number")[1].dataset.target = death;
-    $(".released.number")[1].dataset.target = released;
-    $(".fatality.number")[1].dataset.target = fatality;
-    $(".provinces.number")[0].dataset.target = provinces;
+    const elConfirmed = document.querySelector(".vn .confirmed.number");
+    const elDeath = document.querySelector(".vn .death.number");
+    const elReleased = document.querySelector(".vn .released.number");
+    const elFatality = document.querySelector(".vn .fatality.number");
+    const elProvinces = document.querySelector(".vn .provinces.number");
+
+    if (elConfirmed) elConfirmed.dataset.target = confirmed;
+    if (elDeath) elDeath.dataset.target = death;
+    if (elReleased) elReleased.dataset.target = released;
+    if (elFatality) elFatality.dataset.target = fatality;
+    if (elProvinces) elProvinces.dataset.target = provinces;
 }
+
 function removeComma(num) {
-    return num.replaceAll(',', '')
+    if (!num) return '0';
+    return String(num).replace(/,/g, '').replace(/\./g, '');
 }
+
 var state_specific = {
     VNM429: {
         name: "Quảng Ninh"
@@ -80,7 +223,7 @@ var state_specific = {
         name: "Điện Biên"
     },
     VNM451: {
-        name: "Đông Bắc"
+        name: "Bắc Kạn"
     },
     VNM452: {
         name: "Thái Nguyên"
@@ -152,7 +295,7 @@ var state_specific = {
         name: "Quảng Bình"
     },
     VNM477: {
-        name: "Dak Lak"
+        name: "Đắk Lắk"
     },
     VNM478: {
         name: "Gia Lai"
@@ -188,7 +331,7 @@ var state_specific = {
         name: "Kon Tum"
     },
     VNM487: {
-        name: "Quàng Nam"
+        name: "Quảng Nam"
     },
     VNM488: {
         name: "Quảng Ngãi"
@@ -203,19 +346,19 @@ var state_specific = {
         name: "Đà Nẵng"
     },
     VNM495: {
-        name: "Bà Rịa Vũng Tàu"
+        name: "Bà Rịa – Vũng Tàu"
     },
     VNM496: {
         name: "Bình Thuận"
     },
     VNM497: {
-        name: "Đông Nam Bộ"
+        name: "Đồng Nai"
     },
     VNM498: {
         name: "An Giang"
     },
     VNM499: {
-        name: "Can Tho"
+        name: "Cần Thơ"
     },
     VNM500: {
         name: "Đồng Tháp"
@@ -261,6 +404,8 @@ var state_specific = {
         name: "Lào Cai"
     }
 }
+
+
 var state_specific_world = {
     AF: {
         name: "Afghanistan",
@@ -1761,94 +1906,19 @@ var state_specific_world = {
         url: "default"
     }
 }
-function createTable(detail) {
-    for (var i = 0; i < detail.length; i++) {
-        var tr = document.createElement("tr");
 
-        var tdName = document.createElement("td");
-        tdName.textContent = exeString(detail[i].name);
-        for (const property in state_specific) {
-            if (removeAccents(state_specific[property].name).toLowerCase() == removeAccents(exeString(detail[i].name)).toLowerCase()) {
-                state_specific[property].color = setColorMap(parseInt(detail[i].cases), colors);
-                state_specific[property].description = `
-                    <span>Số ca nhiễm: <badge>${detail[i].cases}</badge></span><br>
-                    <span>Số ca khỏi: <badge>${detail[i].recovered}</badge></span><br>
-                    <span>Số ca tử vong: <badge>${detail[i].death}</badge></span>
-                    `;
-            }
-        }
-        var tdRank = document.createElement("td");
-        tdRank.textContent = i + 1;
-        var tdNhiem = document.createElement("td");
-        tdNhiem.textContent = detail[i].cases;
 
-        var tdKhoi = document.createElement("td");
-        tdKhoi.textContent = detail[i].recovered;
+// ==========================================
+// TABLE & MAP RENDERING LOGIC
+// ==========================================
 
-        var tdTuVong = document.createElement("td");
-        tdTuVong.textContent = detail[i].death;
 
-        tr.appendChild(tdRank);
-        tr.appendChild(tdName);
-        tr.appendChild(tdNhiem);
-        tr.appendChild(tdKhoi);
-        tr.appendChild(tdTuVong);
-        document.getElementById("table-vn").appendChild(tr)
 
-    }
-}
-function createWorlList(data) {
-    return data.map((country, index) => {
+// ==========================================
+// TABLE & MAP RENDERING LOGIC
+// ==========================================
 
-        return `
-        <tr>
-            <th scope="row">${index + 1}</th>
-            <td>${country['country_name']}</td>
-            <td>${country['cases']} <br> <span class="text-danger diff">(+${country['new_cases']})</span></td>
-            <td>${country['deaths']} <br> <span class="text-danger diff">(+${country['new_deaths']})</span></td>
-            <td>${country['total_recovered']}</td>
-        </tr>
-    `
-    })
-}
-
-function createTableWorld(data) {
-    $("#table-world")[0].tBodies[0].innerHTML = listCountriesMapped.slice(0, 70).join('')
-    for (const property in state_specific_world) {
-        for (const country in data) {
-            if (state_specific_world[property].name == data[country]['country_name']) {
-                state_specific_world[property].color = setColoMapWorld(parseInt(removeComma(data[country]['cases'])), colors);
-                state_specific_world[property].description = `
-                    <span>Số ca nhiễm: <badge>${data[country]['cases']}</badge></span><br>
-                    <span>Số ca khỏi: <badge>${data[country]['total_recovered']}</badge></span><br>
-                    <span>Số ca tử vong: <badge>${data[country]['deaths']}</badge></span>
-                    `;
-            }
-        }
-    }
-
-}
-function showMoreCountries() {
-    let tBody = document.getElementById('table-world').tBodies[0]
-    if (tBody.rows.length < 100) {
-        for (i = 70; i < 150; i++) {
-            let newRow = document.createElement('tr')
-            newRow.innerHTML = listCountriesMapped[i]
-            tBody.appendChild(newRow)
-            document.getElementsByClassName('btn')[0].innerHTML = "Xem thêm (150/222)"
-        }
-
-    }
-    else {
-        for (i = 150; i < listCountriesMapped.length; i++) {
-            let newRow = document.createElement('tr')
-            newRow.innerHTML = listCountriesMapped[i]
-            tBody.appendChild(newRow)
-            document.getElementsByClassName('btn')[0].style.display = 'none'
-        }
-    }
-}
-var colors = [
+const colors = [
     "#ffebee",
     "#ffcdd2",
     "#ef9a9a",
@@ -1857,168 +1927,349 @@ var colors = [
     "#f44336",
     "#e53935",
     "#b71c1c"
-]
+];
 
 function setColorMap(value) {
-    if (value >= 1 && value <= 5) {
-        return colors[1];
-    } else if (value > 5 && value <= 10) {
-        return colors[2];
-    } else if (value > 10 && value <= 20) {
-        return colors[3]
-    } else if (value > 20 && value <= 50) {
-        return colors[4]
-    } else if (value > 50) {
-        return colors[5]
-    } else {
-        return colors[0]
-    }
+    if (value >= 1 && value <= 100) return colors[1];
+    if (value > 100 && value <= 1000) return colors[2];
+    if (value > 1000 && value <= 5000) return colors[3];
+    if (value > 5000 && value <= 20000) return colors[4];
+    if (value > 20000 && value <= 50000) return colors[5];
+    if (value > 50000 && value <= 100000) return colors[6];
+    if (value > 100000) return colors[7];
+    return colors[0];
 }
+
 function setColoMapWorld(value) {
-
-    if (value >= 10000 && value <= 100000)
-        return colors[1]
-    else if (value >= 100000 && value <= 500000) {
-        return colors[2];
-    } else if (value > 500000 && value <= 1000000) {
-        return colors[3];
-    } else if (value > 1000000 && value <= 5000000) {
-        return colors[4]
-    } else if (value > 5000000 && value <= 10000000) {
-        return colors[5]
-    } else if (value > 10000000) {
-        return colors[6]
-    } else {
-        return colors[0]
-    }
+    if (value >= 10000 && value <= 100000) return colors[1];
+    if (value > 100000 && value <= 500000) return colors[2];
+    if (value > 500000 && value <= 1000000) return colors[3];
+    if (value > 1000000 && value <= 5000000) return colors[4];
+    if (value > 5000000 && value <= 10000000) return colors[5];
+    if (value > 10000000 && value <= 50000000) return colors[6];
+    if (value > 50000000) return colors[7];
+    return colors[0];
 }
 
-function exeString(text) {
-    var textChange = "";
-    text.split("-").forEach(t => {
-        textChange += capitalizeFirstLetter(t);
-        textChange += " ";
-    })
-    return textChange.trim()
-}
-function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
 function removeAccents(str) {
-    var AccentsMap = [
-        "aàảãáạăằẳẵắặâầẩẫấậ",
-        "AÀẢÃÁẠĂẰẲẴẮẶÂẦẨẪẤẬ",
-        "dđ", "DĐ",
-        "eèẻẽéẹêềểễếệ",
-        "EÈẺẼÉẸÊỀỂỄẾỆ",
-        "iìỉĩíị",
-        "IÌỈĨÍỊ",
-        "oòỏõóọôồổỗốộơờởỡớợ",
-        "OÒỎÕÓỌÔỒỔỖỐỘƠỜỞỠỚỢ",
-        "uùủũúụưừửữứự",
-        "UÙỦŨÚỤƯỪỬỮỨỰ",
-        "yỳỷỹýỵ",
-        "YỲỶỸÝỴ"
-    ];
-    for (var i = 0; i < AccentsMap.length; i++) {
-        var re = new RegExp('[' + AccentsMap[i].substr(1) + ']', 'g');
-        var char = AccentsMap[i][0];
-        str = str.replace(re, char);
-    }
-    return str;
+    if (!str) return '';
+    return str.normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/[đĐ]/g, 'd')
+        .toLowerCase()
+        .trim();
 }
+
+function normalizeVnName(s) {
+    return removeAccents(s)
+        .replace(/^(tinh|tp|tp\.|thanh pho)\s+/g, '')
+        .replace(/[^a-z0-9]/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+}
+
+const vnProvinceAliases = {
+    'dong bac': 'bac kan',
+    'dong nam bo': 'dong nai',
+    'dak lak': 'dak lak',
+    'quang nam': 'quang nam',
+    'ba ria vung tau': 'ba ria vung tau'
+};
+
+/**
+ * Render Vietnam Table and Map Data
+ */
+function createTable(detail) {
+    globalVnDetail = Array.isArray(detail) ? [...detail] : [];
+    globalVnDetail.sort((a, b) => (b.cases || 0) - (a.cases || 0));
+
+    // Update map data
+    for (const item of globalVnDetail) {
+        const dNorm = normalizeVnName(item.name);
+        for (const property in state_specific) {
+            const sNorm = normalizeVnName(state_specific[property].name);
+            if (dNorm === sNorm || vnProvinceAliases[sNorm] === dNorm || sNorm.includes(dNorm) || dNorm.includes(sNorm)) {
+                state_specific[property].color = setColorMap(parseInt(item.cases) || 0);
+                state_specific[property].description = `
+                    <div class="map-tooltip-content">
+                        <strong class="map-tooltip-title">${item.name}</strong>
+                        <div>Số ca nhiễm: <span class="badge badge-info text-light">${(item.cases || 0).toLocaleString('vi-VN')}</span></div>
+                        <div>Số ca khỏi: <span class="badge badge-success text-light">${(item.recovered || 0).toLocaleString('vi-VN')}</span></div>
+                        <div>Tử vong: <span class="badge badge-danger text-light">${(item.death || 0).toLocaleString('vi-VN')}</span></div>
+                        ${item.casesToday ? `<div>Ca hôm nay: <span class="badge badge-warning text-dark">+${item.casesToday}</span></div>` : ''}
+                    </div>
+                `;
+                break;
+            }
+        }
+    }
+
+    renderVnTableRows(globalVnDetail);
+}
+
+function renderVnTableRows(items) {
+    const tbody = document.querySelector("#table-vn tbody");
+    if (!tbody) return;
+    tbody.innerHTML = "";
+
+    if (items.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Không tìm thấy dữ liệu phù hợp.</td></tr>';
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    items.forEach((item, index) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+            <th scope="row" class="text-muted">${index + 1}</th>
+            <td class="font-weight-bold text-left">${item.name}</td>
+            <td class="text-right text-primary font-weight-bold">${(item.cases || 0).toLocaleString('vi-VN')}</td>
+            <td class="text-right text-success">${(item.recovered || 0).toLocaleString('vi-VN')}</td>
+            <td class="text-right text-danger font-weight-bold">${(item.death || 0).toLocaleString('vi-VN')}</td>
+        `;
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+}
+
+/**
+ * Render World Table Rows
+ */
+function renderWorldTableRows(items, limit = currentWorldLimit) {
+    const tbody = document.querySelector("#table-world tbody");
+    const btnMore = document.getElementById("btn-show-more-world");
+    if (!tbody) return;
+
+    const visibleItems = items.slice(0, limit);
+    tbody.innerHTML = "";
+
+    if (visibleItems.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Không tìm thấy quốc gia phù hợp.</td></tr>';
+        if (btnMore) btnMore.style.display = "none";
+        return;
+    }
+
+    const fragment = document.createDocumentFragment();
+    visibleItems.forEach((c, index) => {
+        const tr = document.createElement("tr");
+        const flagHtml = c.flag ? `<img src="${c.flag}" alt="" class="country-flag mr-2" width="22" height="15" loading="lazy">` : '';
+        const newCasesHtml = c.new_cases && c.new_cases !== '0' ? `<br><span class="badge badge-pill badge-danger-soft text-danger diff-badge">+ ${c.new_cases}</span>` : '';
+        const newDeathsHtml = c.new_deaths && c.new_deaths !== '0' ? `<br><span class="badge badge-pill badge-danger-soft text-danger diff-badge">+ ${c.new_deaths}</span>` : '';
+
+        tr.innerHTML = `
+            <th scope="row" class="text-muted">${index + 1}</th>
+            <td class="text-left font-weight-bold d-flex align-items-center">
+                ${flagHtml}
+                <span>${c.country_name}</span>
+            </td>
+            <td class="text-right font-weight-bold text-primary">
+                ${c.cases} ${newCasesHtml}
+            </td>
+            <td class="text-right font-weight-bold text-danger">
+                ${c.deaths} ${newDeathsHtml}
+            </td>
+            <td class="text-right text-success font-weight-bold">
+                ${c.total_recovered}
+            </td>
+        `;
+        fragment.appendChild(tr);
+    });
+
+    tbody.appendChild(fragment);
+
+    if (btnMore) {
+        if (limit >= items.length) {
+            btnMore.style.display = "none";
+        } else {
+            btnMore.style.display = "inline-block";
+            btnMore.textContent = `Xem thêm (${visibleItems.length}/${items.length})`;
+        }
+    }
+}
+
+/**
+ * Configure World Map data
+ */
+function createTableWorld(countries) {
+    globalCountriesStat = Array.isArray(countries) ? [...countries] : [];
+
+    // Map countries into state_specific_world for map rendering
+    const byIso2 = new Map();
+    const byName = new Map();
+    globalCountriesStat.forEach(c => {
+        if (c.iso2) byIso2.set(c.iso2.toUpperCase(), c);
+        if (c.country_name) byName.set(c.country_name.toLowerCase(), c);
+    });
+
+    for (const property in state_specific_world) {
+        const sName = (state_specific_world[property].name || "").toLowerCase();
+        const c = byIso2.get(property.toUpperCase()) || byName.get(sName);
+        if (c) {
+            state_specific_world[property].color = setColoMapWorld(c.raw_cases);
+            state_specific_world[property].description = `
+                <div class="map-tooltip-content">
+                    <strong class="map-tooltip-title">${c.country_name}</strong>
+                    <div>Số ca nhiễm: <span class="badge badge-info text-light">${c.cases}</span></div>
+                    <div>Đã khỏi: <span class="badge badge-success text-light">${c.total_recovered}</span></div>
+                    <div>Tử vong: <span class="badge badge-danger text-light">${c.deaths}</span></div>
+                </div>
+            `;
+        }
+    }
+
+    renderWorldTableRows(globalCountriesStat, currentWorldLimit);
+}
+
+function showMoreCountries() {
+    currentWorldLimit += 50;
+    const searchVal = (document.getElementById("search-world")?.value || "").toLowerCase().trim();
+    const filtered = searchVal 
+        ? globalCountriesStat.filter(c => c.country_name.toLowerCase().includes(searchVal))
+        : globalCountriesStat;
+
+    renderWorldTableRows(filtered, currentWorldLimit);
+}
+
+/**
+ * Animated Number Counter
+ */
 function numCounter() {
     const counters = document.querySelectorAll('.counter');
-    const speed = 150; // The lower the slower
     counters.forEach(counter => {
-        const updateCount = () => {
-            const target = +counter.getAttribute('data-target');
-            const count = +counter.innerText;
+        const target = parseInt(counter.getAttribute('data-target') || '0', 10);
+        if (isNaN(target)) return;
 
-            // Lower inc to slow and higher to slow
-            const inc = target / speed;
+        let current = 0;
+        const duration = 1200; // ms
+        const startTime = performance.now();
 
-            if (count < target) {
+        const step = (now) => {
+            const progress = Math.min((now - startTime) / duration, 1);
+            const ease = 1 - Math.pow(1 - progress, 3);
+            current = Math.floor(ease * target);
+            counter.innerText = numberWithCommas(current);
 
-                counter.innerText = Math.ceil(count + inc);
-
-                setTimeout(updateCount, 1);
+            if (progress < 1) {
+                requestAnimationFrame(step);
             } else {
                 counter.innerText = numberWithCommas(target);
             }
         };
 
-        updateCount();
+        requestAnimationFrame(step);
     });
 }
+
 function numberWithCommas(x) {
+    if (x === null || x === undefined) return '0';
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
 }
-async function start() {
-    await main();
-    for (const property in state_specific) {
-        if (state_specific[property].description) {
-        } else {
-            state_specific[property].inactive = "yes";
-        }
-    }
-    for (const property in state_specific_world) {
-        if (state_specific_world[property].description == "default") {
-            state_specific_world[property].inactive = "yes";
-            state_specific_world[property].color = "#ffebee"
-        }
-    }
-    simplemaps_countrymap.refresh()
-    simplemaps_worldmap.refresh()
 
-}
+// ==========================================
+// CHART LOGIC
+// ==========================================
 
-start()
-
-//  CHART
 async function getDataForChart() {
-    const responseChartVn = await fetch("https://api.apify.com/v2/key-value-stores/Tksmptn5O41eHrT4d/records/LATEST");
-    const responseChartWorld = await fetch("https://disease.sh/v3/covid-19/historical/all?lastdays=30")
-    const responseChartCountries = await fetch("https://disease.sh/v3/covid-19/historical/USA%2CIndia%2CBrazil%2CFrance%2CRussia?lastdays=90")
+    try {
+        const [responseChartVn, responseChartWorld, responseChartCountries] = await Promise.all([
+            fetch("https://api.apify.com/v2/key-value-stores/Tksmptn5O41eHrT4d/records/LATEST").catch(() => null),
+            fetch("https://disease.sh/v3/covid-19/historical/all?lastdays=30").catch(() => null),
+            fetch("https://disease.sh/v3/covid-19/historical/USA%2CIndia%2CBrazil%2CFrance%2CRussia?lastdays=90").catch(() => null)
+        ]);
 
-    const dataVN = await responseChartVn.json();
-    const dataWorld = await responseChartWorld.json();
-    const dataCountries = await responseChartCountries.json();
-    return { dataVN, dataWorld, dataCountries }
+        const dataVN = responseChartVn && responseChartVn.ok ? await responseChartVn.json() : { canhiem: [], catuvong: [], cakhoi: [] };
+        const dataWorld = responseChartWorld && responseChartWorld.ok ? await responseChartWorld.json() : { cases: {}, deaths: {}, recovered: {} };
+        const dataCountries = responseChartCountries && responseChartCountries.ok ? await responseChartCountries.json() : [];
+
+        cachedChartData = { dataVN, dataWorld, dataCountries };
+        return cachedChartData;
+    } catch (err) {
+        console.error("getDataForChart error:", err);
+        return {
+            dataVN: { canhiem: [], catuvong: [], cakhoi: [] },
+            dataWorld: { cases: {}, deaths: {}, recovered: {} },
+            dataCountries: []
+        };
+    }
 }
+
+function renderChartHelper(idChart, config) {
+    const canvas = document.getElementById(idChart);
+    if (!canvas) return;
+
+    if (chartInstances[idChart]) {
+        chartInstances[idChart].destroy();
+    }
+
+    chartInstances[idChart] = new Chart(canvas, config);
+}
+
+function renderAllCharts(chartData) {
+    if (!chartData) return;
+    const { dataVN, dataWorld, dataCountries } = chartData;
+
+    if (dataWorld.cases) {
+        createChartWorld([dataWorld.cases, dataWorld.deaths, dataWorld.recovered], 'BIỂU ĐỒ TÌNH HÌNH DỊCH BỆNH THẾ GIỚI TRONG 1 THÁNG', "global-trend");
+    }
+    if (dataCountries && dataCountries.length) {
+        createChartCountries(dataCountries, "BIỂU ĐỒ SO SÁNH GIỮA CÁC NƯỚC", "countries-trend");
+    }
+    if (dataVN.canhiem && dataVN.canhiem.length) {
+        createChart([dataVN.canhiem, dataVN.catuvong, dataVN.cakhoi], 'BIỂU ĐỒ TÌNH HÌNH DỊCH BỆNH VIỆT NAM TRONG 10 NGÀY QUA', "vietnam-chart");
+    }
+}
+
 function createChart(dataforChart, title, idChart) {
     const labels = [];
+    const canhiem = [];
+    const catuvong = [];
+    const cakhoi = [];
+    const theme = getChartThemeColors();
 
-    for (let i = 0; i < dataforChart[0].length; i++) {
-        labels.push(dataforChart[0][i].day);
+    const list = dataforChart[0] || [];
+    for (let i = 0; i < list.length; i++) {
+        labels.push(list[i].day);
+        canhiem.push(list[i].quantity || 0);
     }
 
-    var data = {
+    if (dataforChart[1]) {
+        for (let i = 0; i < dataforChart[1].length; i++) {
+            catuvong.push(dataforChart[1][i].quantity || 0);
+        }
+    }
+    if (dataforChart[2]) {
+        for (let i = 0; i < dataforChart[2].length; i++) {
+            cakhoi.push(dataforChart[2][i].quantity || 0);
+        }
+    }
+
+    const data = {
         labels: labels,
         datasets: [
             {
                 label: "Ca nhiễm",
-                data: dataforChart[0].map(x => x.quantity),
-                borderColor: '#5bc0de',
-                backgroundColor: '#5bc0de',
-                tension: 0.3,
-
+                data: canhiem,
+                borderColor: '#0284c7',
+                backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                fill: true,
+                tension: 0.35
             },
             {
                 label: "Ca tử vong",
-                data: dataforChart[1].map(x => x.quantity),
-                borderColor: '#d9534f',
-                backgroundColor: '#d9534f',
-                tension: 0.3,
-
+                data: catuvong,
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                fill: true,
+                tension: 0.35
             },
             {
                 label: "Ca khỏi",
-                data: dataforChart[2].map(x => x.quantity),
-                borderColor: '#5cb85c',
-                backgroundColor: '#5cb85c',
-                tension: 0.3,
-
+                data: cakhoi,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                fill: true,
+                tension: 0.35
             }
         ]
     };
@@ -2027,73 +2278,74 @@ function createChart(dataforChart, title, idChart) {
         type: 'line',
         data,
         options: {
-            interaction: {
-                mode: 'index',
-                axis: 'y'
-            },
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                title: {
-                    display: true,
-                    text: title,
-                    font: {
-                        size: 20,
-                        weight: 'bolder'
+                title: { display: true, text: title, font: { size: 16, weight: 'bold' }, color: theme.titleColor },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('vi-VN')}`
                     }
                 }
+            },
+            scales: {
+                y: {
+                    ticks: { callback: (val) => val.toLocaleString('vi-VN'), color: theme.tickColor },
+                    grid: { color: theme.gridColor }
+                },
+                x: {
+                    ticks: { color: theme.tickColor },
+                    grid: { color: theme.gridColor }
+                }
             }
-
         }
     };
 
-    var myChart = new Chart(
-        document.getElementById(idChart),
-        config
-    );
+    renderChartHelper(idChart, config);
 }
+
 function createChartWorld(dataforChart, title, idChart) {
     const labels = [];
-    const cases = []
-    const deaths = []
-    const recorverd = []
-    for (day in dataforChart[1]) {
+    const cases = [];
+    const deaths = [];
+    const recovered = [];
+    const theme = getChartThemeColors();
+
+    const casesObj = dataforChart[0] || {};
+    const deathsObj = dataforChart[1] || {};
+    const recObj = dataforChart[2] || {};
+
+    for (const day in casesObj) {
         labels.push(day);
-        deaths.push(dataforChart[1][day])
-    }
-    for (day in dataforChart[0]) {
-
-        cases.push(dataforChart[0][day])
-    }
-    for (day in dataforChart[2]) {
-
-        recorverd.push(dataforChart[2][day])
+        cases.push(casesObj[day] || 0);
+        deaths.push(deathsObj[day] || 0);
+        recovered.push(recObj[day] || 0);
     }
 
-    var data = {
-        labels: labels,
+    const data = {
+        labels,
         datasets: [
             {
                 label: "Ca nhiễm",
                 data: cases,
-                borderColor: '#5bc0de',
-                backgroundColor: '#5bc0de',
-                tension: 0.3,
-
+                borderColor: '#0284c7',
+                backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                tension: 0.35
             },
             {
                 label: "Ca tử vong",
                 data: deaths,
-                borderColor: '#d9534f',
-                backgroundColor: '#d9534f',
-                tension: 0.3,
-
+                borderColor: '#ef4444',
+                backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                tension: 0.35
             },
             {
                 label: "Ca khỏi",
-                data: recorverd,
-                borderColor: '#5cb85c',
-                backgroundColor: '#5cb85c',
-                tension: 0.3,
-
+                data: recovered,
+                borderColor: '#10b981',
+                backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                tension: 0.35
             }
         ]
     };
@@ -2102,131 +2354,229 @@ function createChartWorld(dataforChart, title, idChart) {
         type: 'line',
         data,
         options: {
-            interaction: {
-                mode: 'index',
-                axis: 'y'
-            },
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                title: {
-                    display: true,
-                    text: title,
-                    font: {
-                        size: 20,
-                        weight: 'bolder'
+                title: { display: true, text: title, font: { size: 16, weight: 'bold' }, color: theme.titleColor },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('vi-VN')}`
                     }
                 }
+            },
+            scales: {
+                y: {
+                    ticks: { callback: (val) => val.toLocaleString('vi-VN'), color: theme.tickColor },
+                    grid: { color: theme.gridColor }
+                },
+                x: {
+                    ticks: { color: theme.tickColor },
+                    grid: { color: theme.gridColor }
+                }
             }
-
         }
     };
 
-    var myChart = new Chart(
-        document.getElementById(idChart),
-        config
-    );
+    renderChartHelper(idChart, config);
 }
+
 function createChartCountries(dataforChart, title, idChart) {
-    const labels = [];
-    const USA = []
-    const India = []
-    const Russia = []
-    const France = []
-    const Brazil = []
+    const list = Array.isArray(dataforChart) ? dataforChart : [];
+    if (list.length === 0) return;
 
-    for (day in dataforChart[0]['timeline']['cases']) {
-        labels.push(day);
-        USA.push(dataforChart[0]['timeline']['cases'][day])
+    const firstTimeline = list[0]?.timeline?.cases || {};
+    const labels = Object.keys(firstTimeline);
+    const theme = getChartThemeColors();
 
-    }
-    for (day in dataforChart[1]['timeline']['cases']) {
+    const countryColors = [
+        { label: 'Hoa Kỳ', border: '#f59e0b', bg: '#f59e0b' },
+        { label: 'Ấn Độ', border: '#3b82f6', bg: '#3b82f6' },
+        { label: 'Brazil', border: '#06b6d4', bg: '#06b6d4' },
+        { label: 'Pháp', border: '#ef4444', bg: '#ef4444' },
+        { label: 'Nga', border: '#10b981', bg: '#10b981' }
+    ];
 
-        India.push(dataforChart[1]['timeline']['cases'][day])
-    }
-    for (day in dataforChart[2]['timeline']['cases']) {
+    const datasets = list.slice(0, 5).map((item, idx) => {
+        const countryName = item.country || ('Country ' + (idx + 1));
+        const color = countryColors[idx] || { border: '#6366f1', bg: '#6366f1' };
+        const caseVals = [];
+        for (const day of labels) {
+            caseVals.push(item.timeline?.cases?.[day] || 0);
+        }
 
-        Brazil.push(dataforChart[2]['timeline']['cases'][day])
-    }
-    for (day in dataforChart[3]['timeline']['cases']) {
+        return {
+            label: color.label || countryName,
+            data: caseVals,
+            borderColor: color.border,
+            backgroundColor: color.bg,
+            tension: 0.35,
+            fill: false
+        };
+    });
 
-        France.push(dataforChart[3]['timeline']['cases'][day])
-    }
-    for (day in dataforChart[4]['timeline']['cases']) {
-
-        Russia.push(dataforChart[4]['timeline']['cases'][day])
-    }
-    var data = {
-        labels: labels,
-        datasets: [
-            {
-                label: "USA",
-                data: USA,
-                borderColor: '#f0ad4e',
-                backgroundColor: '#f0ad4e',
-                tension: 0.3,
-
-            },
-            {
-                label: "Ấn Độ",
-                data: India,
-                borderColor: '#0275d8',
-                backgroundColor: '#0275d8',
-                tension: 0.3,
-
-            },
-            {
-                label: "Brazil",
-                data: Brazil,
-                borderColor: '#5bc0de',
-                backgroundColor: '#5bc0de',
-                tension: 0.3,
-
-            },
-            {
-                label: "Pháp",
-                data: France,
-                borderColor: '#d9534f',
-                backgroundColor: '#d9534f',
-                tension: 0.3,
-
-            },
-            {
-                label: "Nga",
-                data: Russia,
-                borderColor: '#5cb85c',
-                backgroundColor: '#5cb85c',
-                tension: 0.3,
-
-            }
-        ]
-    };
-
+    const data = { labels, datasets };
     const config = {
         type: 'line',
         data,
         options: {
-            interaction: {
-                mode: 'index',
-                axis: 'y'
-            },
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
             plugins: {
-                title: {
-                    display: true,
-                    text: title,
-                    font: {
-                        size: 20,
-                        weight: 'bolder'
+                title: { display: true, text: title, font: { size: 16, weight: 'bold' }, color: theme.titleColor },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y.toLocaleString('vi-VN')}`
                     }
                 }
+            },
+            scales: {
+                y: {
+                    ticks: { callback: (val) => val.toLocaleString('vi-VN'), color: theme.tickColor },
+                    grid: { color: theme.gridColor }
+                },
+                x: {
+                    ticks: { color: theme.tickColor },
+                    grid: { color: theme.gridColor }
+                }
             }
-
         }
     };
 
-    var myChart = new Chart(
-        document.getElementById(idChart),
-        config
-    );
+    renderChartHelper(idChart, config);
 }
 
+// ==========================================
+// INITIALIZATION & EVENT HANDLERS
+// ==========================================
 
+async function main() {
+    try {
+        const [vnResult, worldResult] = await Promise.all([
+            getDataVN(),
+            getDataWorld()
+        ]);
 
+        const vnData = vnResult.data || {};
+        renderDashboardVn(
+            vnData.infected || 0,
+            vnData.deceased || 0,
+            vnData.recovered || 0,
+            vnData.treated || 0,
+            (vnData.detail && vnData.detail.length) || 63
+        );
+
+        const { countries_stat, statistic_taken_at, world_total } = worldResult;
+        const lastUpdatedEl = document.getElementById('last-updated');
+        if (lastUpdatedEl) {
+            lastUpdatedEl.textContent = "Cập nhật lúc: " + statistic_taken_at;
+        }
+
+        renderDashboardWorld(
+            world_total.total_cases,
+            world_total.new_cases,
+            world_total.total_deaths,
+            world_total.new_deaths,
+            world_total.total_recovered,
+            world_total.fatality,
+            world_total.affected_countries
+        );
+
+        numCounter();
+
+        // Populate Tables & Map tooltips
+        createTableWorld(countries_stat);
+        createTable(vnData.detail || []);
+
+        // Load Charts
+        const chartData = await getDataForChart();
+        renderAllCharts(chartData);
+    } catch (e) {
+        console.error("Main execution error:", e);
+    }
+}
+
+async function start() {
+    await main();
+
+    for (const property in state_specific) {
+        if (!state_specific[property].description) {
+            state_specific[property].inactive = "yes";
+        }
+    }
+    for (const property in state_specific_world) {
+        if (state_specific_world[property].description === "default") {
+            state_specific_world[property].inactive = "yes";
+            state_specific_world[property].color = "#ffebee";
+        }
+    }
+
+    if (window.simplemaps_countrymap?.refresh) simplemaps_countrymap.refresh();
+    if (window.simplemaps_worldmap?.refresh) simplemaps_worldmap.refresh();
+}
+
+// Setup Event Listeners after DOM is ready
+document.addEventListener("DOMContentLoaded", () => {
+    // Initialize Theme (Default: Bright Mode)
+    initTheme();
+
+    // Start data fetch
+    start();
+
+    // Tab switch map refresh
+    if (window.jQuery) {
+        jQuery('a[data-toggle="tab"]').on('shown.bs.tab', function (e) {
+            const target = e.target.getAttribute("href");
+            if (target === "#vn-container" && window.simplemaps_countrymap?.refresh) {
+                simplemaps_countrymap.refresh();
+            } else if (target === "#world-container" && window.simplemaps_worldmap?.refresh) {
+                simplemaps_worldmap.refresh();
+            }
+        });
+    }
+
+    // "Xem thêm" button
+    const btnMore = document.getElementById("btn-show-more-world");
+    if (btnMore) {
+        btnMore.addEventListener("click", showMoreCountries);
+    }
+
+    // World Table Search Filter
+    const searchWorld = document.getElementById("search-world");
+    if (searchWorld) {
+        searchWorld.addEventListener("input", (e) => {
+            const term = e.target.value.toLowerCase().trim();
+            const filtered = term 
+                ? globalCountriesStat.filter(c => c.country_name.toLowerCase().includes(term))
+                : globalCountriesStat;
+            renderWorldTableRows(filtered, term ? filtered.length : currentWorldLimit);
+        });
+    }
+
+    // Vietnam Table Search Filter
+    const searchVn = document.getElementById("search-vn");
+    if (searchVn) {
+        searchVn.addEventListener("input", (e) => {
+            const term = normalizeVnName(e.target.value);
+            const filtered = term 
+                ? globalVnDetail.filter(item => normalizeVnName(item.name).includes(term))
+                : globalVnDetail;
+            renderVnTableRows(filtered);
+        });
+    }
+
+    // Refresh icon with animation
+    const refreshBtn = document.getElementById("refresh-btn");
+    if (refreshBtn) {
+        refreshBtn.addEventListener("click", async (e) => {
+            e.preventDefault();
+            const icon = refreshBtn.querySelector(".refresh-icon-svg");
+            if (icon) icon.classList.add("spinning");
+            await start();
+            setTimeout(() => {
+                if (icon) icon.classList.remove("spinning");
+            }, 600);
+        });
+    }
+});

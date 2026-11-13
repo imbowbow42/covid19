@@ -3,7 +3,7 @@ simplemaps_countrymap_mapdata = {
     //General settings
     width: '400', //'700' or 'responsive'
     background_color: "#FFFFFF",
-    background_transparent: "no",
+    background_transparent: "yes",
     border_color: "rgb(204, 204, 204)",
 
     //State defaults

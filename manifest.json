@@ -1,0 +1,15 @@
+{
+  "manifest_version": 3,
+  "name": "COVID-19 Tracker - Thông tin dịch bệnh",
+  "version": "1.0.0",
+  "description": "Theo dõi số liệu và biểu đồ COVID-19 tại Việt Nam và trên thế giới theo thời gian thực.",
+  "action": {
+    "default_popup": "index.html",
+    "default_title": "COVID-19 Tracker"
+  },
+  "host_permissions": [
+    "https://api.apify.com/*",
+    "https://disease.sh/*"
+  ]
+}
+
